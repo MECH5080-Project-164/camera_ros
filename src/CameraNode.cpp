@@ -284,10 +284,15 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
   }
 
   // publisher for raw and compressed image
-  pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", 1);
+  const size_t cam_id = get_parameter("camera").as_int();
+  std::string camera_name = "camera_" + std::to_string(cam_id);
+  std::string image_topic = "~/image_raw" + camera_name;
+  std::string compressed_image_topic = "~/image_raw/compressed" + camera_name;
+  std::string camera_info_topic = "~/camera_info" + camera_name;
+  pub_image = this->create_publisher<sensor_msgs::msg::Image>(image_topic, 1);
   pub_image_compressed =
-    this->create_publisher<sensor_msgs::msg::CompressedImage>("~/image_raw/compressed", 1);
-  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>("~/camera_info", 1);
+    this->create_publisher<sensor_msgs::msg::CompressedImage>(compressed_image_topic, 1);
+  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, 1);
 
   // start camera manager and check for cameras
   camera_manager.start();
