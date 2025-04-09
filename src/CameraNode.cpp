@@ -283,17 +283,6 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
     jpeg_quality = declare_parameter<uint8_t>("jpeg_quality", 95, jpeg_quality_description);
   }
 
-  // publisher for raw and compressed image
-  const size_t cam_id = get_parameter("camera").as_int();
-  std::string camera_name = "camera_" + std::to_string(cam_id);
-  std::string image_topic = "~/image_raw" + camera_name;
-  std::string compressed_image_topic = "~/image_raw/compressed" + camera_name;
-  std::string camera_info_topic = "~/camera_info" + camera_name;
-  pub_image = this->create_publisher<sensor_msgs::msg::Image>(image_topic, 1);
-  pub_image_compressed =
-    this->create_publisher<sensor_msgs::msg::CompressedImage>(compressed_image_topic, 1);
-  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, 1);
-
   // start camera manager and check for cameras
   camera_manager.start();
   if (camera_manager.cameras().empty())
@@ -340,6 +329,37 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
 
   if (camera->acquire())
     throw std::runtime_error("failed to acquire camera");
+
+  // publisher for raw and compressed image
+  const std::string cam_id = camera->id();
+  int camera_index = 0;
+  switch (get_parameter("camera").get_type()) {
+  case rclcpp::ParameterType::PARAMETER_INTEGER:
+    camera_index = get_parameter("camera").as_int();
+    break;
+  default:
+    auto cameras = camera_manager.cameras();
+    for (size_t i = 0; i < cameras.size(); ++i) {
+      if (cameras[i]->id() == cam_id) {
+        // get the index of the camera
+        camera_index = static_cast<int>(i);
+        break;
+      }
+    }
+    break;
+  }
+
+  std::string camera_name = "camera_" + std::to_string(camera_index);
+  std::string image_topic = "~/image_raw_" + camera_name;
+  std::string compressed_image_topic = "~/image_raw_" + camera_name + "/compressed";
+  std::string camera_info_topic = "~/camera_info_" + camera_name;
+
+  pub_image = this->create_publisher<sensor_msgs::msg::Image>(image_topic, 1);
+  pub_image_compressed =
+    this->create_publisher<sensor_msgs::msg::CompressedImage>(compressed_image_topic, 1);
+  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, 1);
+
+  RCLCPP_INFO_STREAM(get_logger(), "Publishing image on topic: " << image_topic);
 
   std::vector<libcamera::StreamRole> roles {role};
 
